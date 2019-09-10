@@ -9,6 +9,8 @@ export class Skier extends Entity {
     speed = Constants.SKIER_STARTING_SPEED;
 
     isCrashed = false;
+    isJumping = false;
+    jumpDuration = 0;
 
     constructor(x, y) {
         super(x, y);
@@ -30,8 +32,23 @@ export class Skier extends Entity {
         this.isCrashed = isCrashed;
     }
 
+    startJump() {
+        this.isJumping = true;
+        this.jumpDuration = 0
+    }
+
+    stopJump() {
+        this.isJumping = false;
+    }
+
+    getJumpStep() {
+        return Math.floor(this.jumpDuration / Constants.SKIER_JUMP_TIME);
+    }
+
     updateAsset() {
-        if (this.isCrashed) {
+        if (this.isJumping) {
+            this.assetName = Constants.SKIER_JUMP_ASSETS[this.getJumpStep()];
+        } else if (this.isCrashed) {
             this.assetName = Constants.SKIER_CRASH;
         } else {
             this.assetName = Constants.SKIER_DIRECTION_ASSET[this.direction];
@@ -53,6 +70,16 @@ export class Skier extends Entity {
             case Constants.SKIER_DIRECTIONS.RIGHT_DOWN:
                 this.moveSkierRightDown();
                 break;
+        }
+
+        // Advance the jumping animation and check if the jump is complete.
+        if (this.isJumping) {
+            this.jumpDuration++;
+            if (this.getJumpStep() >= Constants.SKIER_JUMP_ASSETS.length) {
+                this.isJumping = false;
+                this.jumpDuration = 0;
+            }
+            this.updateAsset();
         }
     }
 
@@ -119,7 +146,7 @@ export class Skier extends Entity {
             this.y - asset.height / 4
         );
 
-        const collision = obstacleManager.getObstacles().find((obstacle) => {
+        const collisionObject = obstacleManager.getObstacles().find((obstacle) => {
             const obstacleAsset = assetManager.getAsset(obstacle.getAssetName());
             const obstaclePosition = obstacle.getPosition();
             const obstacleBounds = new Rect(
@@ -132,7 +159,32 @@ export class Skier extends Entity {
             return intersectTwoRects(skierBounds, obstacleBounds);
         });
 
-        this.setCrashed(!!collision);
+        if (collisionObject) {
+            switch (collisionObject.getAssetName()) {
+                case 'tree':
+                case 'treeCluster':
+                    // Trees can not be jumped over.
+                    this.setCrashed(true);
+                    this.stopJump();
+                    break;
+
+                case 'rock1':
+                case 'rock2':
+                    // Rocks can be jumped over.
+                    if (!this.isJumping) {
+                        this.setCrashed(true);
+                    }
+                    break;
+
+                case 'jumpRamp':
+                    if (!this.isJumping) {
+                        this.startJump();
+                    }
+            }
+        } else {
+            this.setCrashed(false);
+        }
+
         this.updateAsset();
     };
 }

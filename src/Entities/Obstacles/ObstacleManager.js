@@ -79,12 +79,16 @@ export class ObstacleManager {
 
     placeRandomObstacle(minX, maxX, minY, maxY) {
         const position = this.calculateOpenPosition(minX, maxX, minY, maxY);
+        if (position === null) {
+            return
+        }
+
         const newObstacle = new Obstacle(position.x, position.y);
 
         this.obstacles.push(newObstacle);
     }
 
-    calculateOpenPosition(minX, maxX, minY, maxY) {
+    calculateOpenPosition(minX, maxX, minY, maxY, retry = 0) {
         const x = randomInt(minX, maxX);
         const y = randomInt(minY, maxY);
 
@@ -98,7 +102,11 @@ export class ObstacleManager {
         });
 
         if(foundCollision) {
-            return this.calculateOpenPosition(minX, maxX, minY, maxY);
+            if (retry > 10) {
+                // Don't fill the call stack if an open position can't be found.
+                return null
+            }
+            return this.calculateOpenPosition(minX, maxX, minY, maxY, retry + 1);
         }
         else {
             return {
