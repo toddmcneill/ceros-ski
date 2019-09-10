@@ -1,6 +1,6 @@
 import * as Constants from "../../Constants";
 import { Entity } from "../Entity";
-import { randomInt } from '../../Core/Utils';
+import { randomInt, Rect } from '../../Core/Utils';
 
 const assetTypes = [
     Constants.TREE,

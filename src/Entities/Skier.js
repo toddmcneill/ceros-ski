@@ -1,19 +1,29 @@
 import * as Constants from "../Constants";
 import { Entity } from "./Entity";
-import { intersectTwoRects, Rect } from "../Core/Utils";
+import { intersectTwoRects } from "../Core/Utils";
+import {SKIER_MODES} from "../Constants";
 
 export class Skier extends Entity {
-    assetName = Constants.SKIER_DOWN;
+    assetName = Constants.SKIER_LEFT;
 
-    direction = Constants.SKIER_DIRECTIONS.DOWN;
+    direction = Constants.SKIER_DIRECTIONS.LEFT;
     speed = Constants.SKIER_STARTING_SPEED;
 
-    isCrashed = false;
-    isJumping = false;
-    jumpDuration = 0;
+    mode = Constants.SKIER_MODES.SKI;
+    animationDuration = 0;
 
     constructor(x, y) {
         super(x, y);
+    }
+
+    setMode(mode) {
+        if (this.mode === Constants.SKIER_MODES.EATEN) {
+            return;
+        }
+
+        this.mode = mode;
+        this.animationDuration = 0;
+        this.updateAsset();
     }
 
     setDirection(direction) {
@@ -24,40 +34,43 @@ export class Skier extends Entity {
             direction = Constants.SKIER_DIRECTIONS.RIGHT
         }
         this.direction = direction;
-        this.setCrashed(false);
+
+        // Allow deliberate movement while crashed.
+        if (this.mode === Constants.SKIER_MODES.CRASH) {
+        this.setMode(Constants.SKIER_MODES.SKI);
+        }
+
         this.updateAsset();
     }
 
-    setCrashed(isCrashed) {
-        this.isCrashed = isCrashed;
-    }
-
-    startJump() {
-        this.isJumping = true;
-        this.jumpDuration = 0
-    }
-
-    stopJump() {
-        this.isJumping = false;
-    }
-
     getJumpStep() {
-        return Math.floor(this.jumpDuration / Constants.SKIER_JUMP_TIME);
+        return Math.floor(this.animationDuration / Constants.SKIER_JUMP_TIME);
     }
 
     updateAsset() {
-        if (this.isJumping) {
-            this.assetName = Constants.SKIER_JUMP_ASSETS[this.getJumpStep()];
-        } else if (this.isCrashed) {
-            this.assetName = Constants.SKIER_CRASH;
-        } else {
-            this.assetName = Constants.SKIER_DIRECTION_ASSET[this.direction];
+        this.animationDuration++;
+        switch (this.mode) {
+            case Constants.SKIER_MODES.SKI:
+                this.assetName = Constants.SKIER_DIRECTION_ASSET[this.direction];
+                break;
+
+            case Constants.SKIER_MODES.CRASH:
+                this.assetName = Constants.SKIER_CRASH;
+                break;
+
+            case Constants.SKIER_MODES.JUMP:
+                this.assetName = Constants.SKIER_JUMP_ASSETS[this.getJumpStep()];
+                if (this.getJumpStep() >= Constants.SKIER_JUMP_ASSETS.length) {
+                    this.setMode(Constants.SKIER_MODES.SKI);
+                }
+                break;
         }
     }
 
     move() {
-        if (this.isCrashed) {
-            return
+        // Don't move from skiing while crashed.
+        if (this.mode === Constants.SKIER_MODES.CRASH) {
+            return;
         }
 
         switch(this.direction) {
@@ -71,42 +84,51 @@ export class Skier extends Entity {
                 this.moveSkierRightDown();
                 break;
         }
+    }
 
-        // Advance the jumping animation and check if the jump is complete.
-        if (this.isJumping) {
-            this.jumpDuration++;
-            if (this.getJumpStep() >= Constants.SKIER_JUMP_ASSETS.length) {
-                this.isJumping = false;
-                this.jumpDuration = 0;
-            }
-            this.updateAsset();
+    getStraightSpeed() {
+        if (this.mode === Constants.SKIER_MODES.JUMP) {
+            return this.speed * Constants.SKIER_JUMPING_SPEED_MULTIPLIER
         }
+        return this.speed
+    }
+
+    getDiagonalSpeed() {
+        return this.getStraightSpeed() / Constants.SKIER_DIAGONAL_SPEED_REDUCER;
+    }
+
+    moveSkier(x, y) {
+        // Don't move while eaten.
+        if (this.mode === Constants.SKIER_MODES.EATEN) {
+            return;
+        }
+
+        this.x += x;
+        this.y += y;
     }
 
     moveSkierLeft() {
-        this.x -= Constants.SKIER_STARTING_SPEED;
+        this.moveSkier(-Constants.SKIER_STARTING_SPEED, 0);
     }
 
     moveSkierLeftDown() {
-        this.x -= this.speed / Constants.SKIER_DIAGONAL_SPEED_REDUCER;
-        this.y += this.speed / Constants.SKIER_DIAGONAL_SPEED_REDUCER;
+        this.moveSkier(-this.getDiagonalSpeed(), this.getDiagonalSpeed());
     }
 
     moveSkierDown() {
-        this.y += this.speed;
+        this.moveSkier(0, this.getStraightSpeed());
     }
 
     moveSkierRightDown() {
-        this.x += this.speed / Constants.SKIER_DIAGONAL_SPEED_REDUCER;
-        this.y += this.speed / Constants.SKIER_DIAGONAL_SPEED_REDUCER;
+        this.moveSkier(this.getDiagonalSpeed(), this.getDiagonalSpeed());
     }
 
     moveSkierRight() {
-        this.x += Constants.SKIER_STARTING_SPEED;
+        this.moveSkier(Constants.SKIER_STARTING_SPEED, 0);
     }
 
     moveSkierUp() {
-        this.y -= Constants.SKIER_STARTING_SPEED;
+        this.moveSkier(0, -Constants.SKIER_STARTING_SPEED);
     }
 
     turnLeft() {
@@ -138,51 +160,37 @@ export class Skier extends Entity {
     }
 
     checkIfSkierHitObstacle(obstacleManager, assetManager) {
-        const asset = assetManager.getAsset(this.assetName);
-        const skierBounds = new Rect(
-            this.x - asset.width / 2,
-            this.y - asset.height / 2,
-            this.x + asset.width / 2,
-            this.y - asset.height / 4
-        );
-
+        const skierBounds = this.getBounds(assetManager);
         const collisionObject = obstacleManager.getObstacles().find((obstacle) => {
-            const obstacleAsset = assetManager.getAsset(obstacle.getAssetName());
-            const obstaclePosition = obstacle.getPosition();
-            const obstacleBounds = new Rect(
-                obstaclePosition.x - obstacleAsset.width / 2,
-                obstaclePosition.y - obstacleAsset.height / 2,
-                obstaclePosition.x + obstacleAsset.width / 2,
-                obstaclePosition.y
-            );
-
+            const obstacleBounds = obstacle.getBounds(assetManager);
             return intersectTwoRects(skierBounds, obstacleBounds);
         });
 
         if (collisionObject) {
             switch (collisionObject.getAssetName()) {
-                case 'tree':
-                case 'treeCluster':
+                case Constants.TREE:
+                case Constants.TREE_CLUSTER:
                     // Trees can not be jumped over.
-                    this.setCrashed(true);
-                    this.stopJump();
+                    this.setMode(Constants.SKIER_MODES.CRASH);
                     break;
 
-                case 'rock1':
-                case 'rock2':
+                case Constants.ROCK1:
+                case Constants.ROCK2:
                     // Rocks can be jumped over.
-                    if (!this.isJumping) {
-                        this.setCrashed(true);
+                    if (this.mode !== Constants.SKIER_MODES.JUMP) {
+                        this.setMode(Constants.SKIER_MODES.CRASH);
                     }
                     break;
 
-                case 'jumpRamp':
-                    if (!this.isJumping) {
-                        this.startJump();
+                case Constants.JUMP_RAMP:
+                    if (this.mode !== Constants.SKIER_MODES.JUMP) {
+                        this.setMode(Constants.SKIER_MODES.JUMP);
                     }
             }
-        } else {
-            this.setCrashed(false);
+        }
+        else if (this.mode !== Constants.SKIER_MODES.JUMP) {
+            // Get back up when moving away from a crash.
+            this.setMode(Constants.SKIER_MODES.SKI);
         }
 
         this.updateAsset();

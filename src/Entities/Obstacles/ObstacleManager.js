@@ -42,7 +42,7 @@ export class ObstacleManager {
 
     placeNewObstacle(gameWindow, previousGameWindow) {
         const shouldPlaceObstacle = randomInt(1, NEW_OBSTACLE_CHANCE);
-        if(shouldPlaceObstacle !== NEW_OBSTACLE_CHANCE) {
+        if(!previousGameWindow || shouldPlaceObstacle !== NEW_OBSTACLE_CHANCE) {
             return;
         }
 
