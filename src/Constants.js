@@ -29,16 +29,14 @@ export const ASSETS = {
 };
 
 export const SKIER_DIRECTIONS = {
-    CRASH : 0,
-    LEFT : 1,
-    LEFT_DOWN : 2,
-    DOWN : 3,
-    RIGHT_DOWN : 4,
-    RIGHT : 5
+    LEFT : 0,
+    LEFT_DOWN : 1,
+    DOWN : 2,
+    RIGHT_DOWN : 3,
+    RIGHT : 4
 };
 
 export const SKIER_DIRECTION_ASSET = {
-    [SKIER_DIRECTIONS.CRASH] : SKIER_CRASH,
     [SKIER_DIRECTIONS.LEFT] : SKIER_LEFT,
     [SKIER_DIRECTIONS.LEFT_DOWN] : SKIER_LEFTDOWN,
     [SKIER_DIRECTIONS.DOWN] : SKIER_DOWN,

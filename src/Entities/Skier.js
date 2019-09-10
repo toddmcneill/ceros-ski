@@ -8,20 +8,41 @@ export class Skier extends Entity {
     direction = Constants.SKIER_DIRECTIONS.DOWN;
     speed = Constants.SKIER_STARTING_SPEED;
 
+    isCrashed = false;
+
     constructor(x, y) {
         super(x, y);
     }
 
     setDirection(direction) {
+        if (direction < Constants.SKIER_DIRECTIONS.LEFT) {
+            direction = Constants.SKIER_DIRECTIONS.LEFT
+        }
+        if (direction > Constants.SKIER_DIRECTIONS.RIGHT) {
+            direction = Constants.SKIER_DIRECTIONS.RIGHT
+        }
         this.direction = direction;
+        this.setCrashed(false);
         this.updateAsset();
     }
 
+    setCrashed(isCrashed) {
+        this.isCrashed = isCrashed;
+    }
+
     updateAsset() {
-        this.assetName = Constants.SKIER_DIRECTION_ASSET[this.direction];
+        if (this.isCrashed) {
+            this.assetName = Constants.SKIER_CRASH;
+        } else {
+            this.assetName = Constants.SKIER_DIRECTION_ASSET[this.direction];
+        }
     }
 
     move() {
+        if (this.isCrashed) {
+            return
+        }
+
         switch(this.direction) {
             case Constants.SKIER_DIRECTIONS.LEFT_DOWN:
                 this.moveSkierLeftDown();
@@ -111,8 +132,7 @@ export class Skier extends Entity {
             return intersectTwoRects(skierBounds, obstacleBounds);
         });
 
-        if(collision) {
-            this.setDirection(Constants.SKIER_DIRECTIONS.CRASH);
-        }
+        this.setCrashed(!!collision);
+        this.updateAsset();
     };
 }
